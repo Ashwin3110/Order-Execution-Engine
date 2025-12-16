@@ -1,5 +1,6 @@
 import redis from "./redis";
 import { ActiveOrder, OrderStatus } from "../types/order";
+import { pushUpdate } from "../ws/socketManager";
 
 const ORDER_KEY_PREFIX = "order:";
 
@@ -21,9 +22,12 @@ export async function updateOrder(
   }
 
   const parsed: ActiveOrder = JSON.parse(existing);
-  const updated: ActiveOrder = { ...parsed, ...updates };
-
+  const updated = {
+    ...JSON.parse(existing),
+    ...updates,
+  };
   await redis.set(key, JSON.stringify(updated));
+  pushUpdate(orderId, updated);
 }
 
 // Fetch order

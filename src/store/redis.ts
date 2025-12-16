@@ -2,15 +2,17 @@ import Redis from "ioredis";
 
 const redis = new Redis({
   host: "127.0.0.1",
-  port: 6379
+  port: 6379,
+  // Required by BullMQ for blocking commands. See BullMQ docs.
+  maxRetriesPerRequest: null,
 });
 
 redis.on("connect", () => {
-  console.log("✅ Redis connected");
+  console.log("Redis connected");
 });
 
 redis.on("error", (err) => {
-  console.error("❌ Redis connection error:", err);
+  console.error("Redis connection error:", err);
 });
 
 export default redis;
