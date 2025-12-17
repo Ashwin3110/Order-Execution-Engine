@@ -4,7 +4,7 @@ import { createOrder, getOrder } from "./store/orderStore";
 import { orderQueue } from "./queue/orderQueue";
 import { WebSocketServer } from "ws";
 import { registerSocket } from "./ws/socketManager";
-
+import "./workers/orderWorker";
 const server = Fastify({ logger: true });
 
 server.get("/health", async () => {

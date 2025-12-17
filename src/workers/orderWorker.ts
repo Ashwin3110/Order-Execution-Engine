@@ -1,96 +1,171 @@
 import { Worker } from "bullmq";
 import redis from "../store/redis";
-import { getOrder, updateOrder, deleteOrder } from "../store/orderStore";
-import { getBestDex } from "../engine/router";
 import {
-  buildAndSimulateTransaction,
-} from "../engine/transactionBuilder";
-import { isSlippageAcceptable } from "../engine/slippage";
+  getOrder,
+  updateOrder,
+  deleteOrder,
+} from "../store/orderStore";
+
+import { getBestDex } from "../engine/router";
+import { buildAndSendRaydiumSwap } from "../engine/transactionBuilder";
+import { executeMeteoraSwap } from "../engine/meteoraExecutor";
 import { saveFinalOrder } from "../utils/orderRepository";
 
-let attemptCount: Record<string, number> = {};
+/**
+ * Small delay helper
+ */
+const delay = (ms: number) =>
+  new Promise((res) => setTimeout(res, ms));
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+console.log("🚀 Order Worker starting...");
+
+/**
+ * Order execution worker
+ */
 const worker = new Worker(
   "order-queue",
   async (job) => {
     const { orderId } = job.data;
+    console.log(`🟡 Processing order ${orderId}`);
 
+    /**
+     * 1️⃣ Fetch order
+     */
     const order = await getOrder(orderId);
-    if (!order) throw new Error("Order not found");
+    if (!order) {
+      console.error(`❌ Order ${orderId} not found`);
+      throw new Error("Order not found");
+    }
 
-    // pending → routing
+    /**
+     * pending → routing
+     */
+    console.log(`🔄 [${orderId}] Status → routing`);
     await updateOrder(orderId, { status: "routing" });
-    const bestQuote = await getBestDex(order.amount);
 
-    // routing → building
+    /**
+     * 2️⃣ Get best DEX
+     */
+    const bestQuote = await getBestDex(order.amount);
+    console.log(
+      `📊 [${orderId}] Best DEX: ${bestQuote.dex} | Expected output: ${bestQuote.outputAmount}`
+    );
+
+    /**
+     * routing → building
+     */
+    console.log(
+      `🏗️ [${orderId}] Status → building (DEX: ${bestQuote.dex})`
+    );
     await updateOrder(orderId, {
       status: "building",
       dex: bestQuote.dex,
     });
 
-    const tx = buildAndSimulateTransaction(
-      bestQuote.outputAmount
+    /**
+     * 3️⃣ Slippage protection (3%)
+     */
+    const minOut = bestQuote.outputAmount * 0.97;
+    console.log(
+      `🛡️ [${orderId}] Slippage check: minOut = ${minOut}`
     );
 
-    // slippage check
-    const MAX_SLIPPAGE = 3;
-    const ok = isSlippageAcceptable(
-      bestQuote.outputAmount,
-      tx.executedOutput,
-      MAX_SLIPPAGE
-    );
+    let txHash: string;
 
-    if (!ok) {
-      throw new Error("Slippage too high");
+    /**
+     * 4️⃣ Execute swap
+     */
+    if (bestQuote.dex === "Raydium") {
+      console.log(`⚡ [${orderId}] Executing on Raydium`);
+      txHash = await buildAndSendRaydiumSwap(
+        order.amount,
+        minOut
+      );
+    } else {
+      console.log(`⚡ [${orderId}] Executing on Meteora`);
+      txHash = await executeMeteoraSwap(
+        bestQuote.poolAddress,
+        order.amount,
+        minOut
+      );
     }
 
-
-    // building → submitted
+    /**
+     * building → submitted
+     */
+    console.log(
+      `📤 [${orderId}] Status → submitted | txHash: ${txHash}`
+    );
     await updateOrder(orderId, {
       status: "submitted",
-      txHash: tx.txHash,
+      txHash,
     });
+
+    // Give network some time
     await delay(1000);
 
-    // submitted → confirmed
+    /**
+     * submitted → confirmed
+     */
+    console.log(`✅ [${orderId}] Status → confirmed`);
     await updateOrder(orderId, {
       status: "confirmed",
       dex: bestQuote.dex,
     });
 
+    /**
+     * 5️⃣ Persist final order
+     */
+    console.log(`💾 [${orderId}] Saving final order to DB`);
     await saveFinalOrder({
       orderId,
       status: "confirmed",
       dex: bestQuote.dex,
-      finalPrice: tx.executedOutput,
-      txHash: tx.txHash,
+      finalPrice: bestQuote.outputAmount,
+      txHash,
     });
 
-    // cleanup Redis
+    /**
+     * 6️⃣ Cleanup Redis
+     */
+    console.log(`🧹 [${orderId}] Cleaning up Redis`);
     await deleteOrder(orderId);
+
+    console.log(`🎉 [${orderId}] Order completed successfully`);
   },
   {
     connection: redis,
-    concurrency: 10,
+    concurrency: 10, // max 10 concurrent orders
   }
 );
 
+/**
+ * Job completed
+ */
 worker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed`);
+  console.log(`🏁 Job ${job.id} completed`);
 });
 
+/**
+ * Job failed after retries
+ */
 worker.on("failed", async (job, err) => {
-  const orderId = job?.data.orderId;
-  if (!orderId) return;
+  const orderId = job?.data?.orderId;
 
-  await saveFinalOrder({
-    orderId,
-    status: "failed",
-    error: err.message,
-  });
+  console.error(
+    `🔥 Order ${orderId} permanently failed:`,
+    err.message
+  );
 
-  await deleteOrder(orderId);
+  if (orderId) {
+    await saveFinalOrder({
+      orderId,
+      status: "failed",
+      error: err.message,
+    });
 
-  console.error(`Order ${orderId} permanently failed`);
+    await deleteOrder(orderId);
+  }
 });
+
+export default worker;
