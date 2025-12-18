@@ -15,14 +15,6 @@ export async function saveFinalOrder({
   txHash?: string | null;
   error?: string | null;
 }) {
-  console.log("🗄️ [DB] Saving final order:", {
-    orderId,
-    status,
-    dex,
-    finalPrice,
-    txHash,
-    error,
-  });
 
   // INSERT (idempotent)
   await pgPool.query(
