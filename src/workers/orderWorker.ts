@@ -27,8 +27,7 @@ const worker = new Worker(
   "order-queue",
   async (job) => {
     const { orderId } = job.data;
-    console.log(`🟡 Processing order ${orderId}`);
-
+    console.log(`${orderId} Processing order → Pending`);
     /**
      * 1️⃣ Fetch order
      */
@@ -40,23 +39,20 @@ const worker = new Worker(
     /**
      * pending → routing
      */
-    console.log(`🔄 [${orderId}] Status → routing`);
+    console.log(`[${orderId}] Pending → Routing`);
     await updateOrder(orderId, { status: "routing" });
 
     /**
      * 2️⃣ Get best DEX
      */
     const bestQuote = await getBestDex(order.amount);
-    console.log(
-      `[${orderId}] Best DEX: ${bestQuote.dex} | Expected output: ${bestQuote.outputAmount}`
-    );
+    console.log(`[${orderId}] Best DEX: ${bestQuote.dex}`);
+    console.log(`[${orderId}] Expected output: ${bestQuote.outputAmount}`);
 
     /**
      * routing → building
      */
-    console.log(
-      `[${orderId}] Status → building (${bestQuote.dex})`
-    );
+    console.log(`[${orderId}] Routing → building`);
     await updateOrder(orderId, {
       status: "building",
       dex: bestQuote.dex,
@@ -88,7 +84,7 @@ const worker = new Worker(
      * building → submitted
      */
     console.log(
-      `[${orderId}] Status → submitted`
+      `[${orderId}] building → Submitted`
     );
     await updateOrder(orderId, {
       status: "submitted",
@@ -100,7 +96,7 @@ const worker = new Worker(
     /**
      * submitted → confirmed
      */
-    console.log(` [${orderId}] Status → confirmed`);
+    console.log(` [${orderId}] Submitted → confirmed`);
     await updateOrder(orderId, {
       status: "confirmed",
       dex: bestQuote.dex,
@@ -109,7 +105,7 @@ const worker = new Worker(
     /**
      * Persist success
      */
-    await saveFinalOrder({
+    await   ({
       orderId,
       status: "confirmed",
       dex: bestQuote.dex,

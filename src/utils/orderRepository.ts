@@ -1,4 +1,4 @@
-import {pgPool} from "../store/postgres";
+import { pgPool } from "../store/postgres";
 
 export async function saveFinalOrder({
   orderId,
@@ -15,6 +15,16 @@ export async function saveFinalOrder({
   txHash?: string | null;
   error?: string | null;
 }) {
+  console.log("🗄️ [DB] Saving final order:", {
+    orderId,
+    status,
+    dex,
+    finalPrice,
+    txHash,
+    error,
+  });
+
+  // INSERT (idempotent)
   await pgPool.query(
     `
     INSERT INTO orders (order_id, status, dex, final_price, tx_hash, error)
@@ -23,4 +33,17 @@ export async function saveFinalOrder({
     `,
     [orderId, status, dex, finalPrice, txHash, error]
   );
+
+  // READ BACK from DB
+  const result = await pgPool.query(
+    `
+    SELECT *
+    FROM orders
+    WHERE order_id = $1
+    `,
+    [orderId]
+  );
+
+  console.log("[DB] Order record from DB:");
+  console.table(result.rows);
 }
