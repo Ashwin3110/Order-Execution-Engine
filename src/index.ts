@@ -36,7 +36,8 @@ server.get("/create-order", async () => {
 });
 
 const start = async () => {
-    await server.listen({ port: 3000 });
+    const PORT = process.env.PORT || 3000;
+    server.listen({ port: Number(PORT), host: "0.0.0.0" });
     console.log("Server running at http://localhost:3000");
 };
 
@@ -65,7 +66,7 @@ wss.on("connection", (ws, req) => {
     });
 
     ws.on("close", () => {
-    console.log("WebSocket disconnected");
+        console.log("WebSocket disconnected");
     });
 });
 

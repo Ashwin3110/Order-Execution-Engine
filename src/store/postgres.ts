@@ -1,15 +1,26 @@
 import { Pool } from "pg";
 
-const pool = new Pool({
-  host: "localhost",
-  port: 5432,
-  user: "admin",
-  password: "admin",
-  database: "order_engine",
+/**
+ * PostgreSQL connection
+ */
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("❌ DATABASE_URL is not set in environment variables");
+}
+
+export const pgPool = new Pool({
+  connectionString: databaseUrl,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
-pool.on("connect", () => {
-  console.log("PostgreSQL connected");
+pgPool.on("connect", () => {
+  console.log("🟢 PostgreSQL connected");
 });
 
-export default pool;
+pgPool.on("error", (err) => {
+  console.error("🔴 PostgreSQL error:", err);
+});

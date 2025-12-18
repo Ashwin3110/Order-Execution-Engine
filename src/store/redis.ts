@@ -1,18 +1,25 @@
-import Redis from "ioredis";
+import IORedis from "ioredis";
 
-const redis = new Redis({
-  host: "127.0.0.1",
-  port: 6379,
-  // Required by BullMQ for blocking commands. See BullMQ docs.
-  maxRetriesPerRequest: null,
+/**
+ * Redis connection
+ * Used by BullMQ + order store
+ */
+const redisUrl = process.env.REDIS_URL;
+
+if (!redisUrl) {
+  throw new Error("❌ REDIS_URL is not set in environment variables");
+}
+
+const redis = new IORedis(redisUrl, {
+  maxRetriesPerRequest: null, // required by BullMQ
 });
 
 redis.on("connect", () => {
-  console.log("Redis connected");
+  console.log("🟢 Redis connected");
 });
 
 redis.on("error", (err) => {
-  console.error("Redis connection error:", err);
+  console.error("🔴 Redis connection error:", err);
 });
 
 export default redis;

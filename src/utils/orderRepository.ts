@@ -1,4 +1,4 @@
-import pool from "../store/postgres";
+import {pgPool} from "../store/postgres";
 
 export async function saveFinalOrder({
   orderId,
@@ -15,7 +15,7 @@ export async function saveFinalOrder({
   txHash?: string | null;
   error?: string | null;
 }) {
-  await pool.query(
+  await pgPool.query(
     `
     INSERT INTO orders (order_id, status, dex, final_price, tx_hash, error)
     VALUES ($1, $2, $3, $4, $5, $6)
