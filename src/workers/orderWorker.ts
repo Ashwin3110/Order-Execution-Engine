@@ -31,6 +31,7 @@ const worker = new Worker(
     /**
      * 1️⃣ Fetch order
      */
+    await delay(2000);
     const order = await getOrder(orderId);
     if (!order) {
       throw new Error("Order not found");
@@ -41,7 +42,7 @@ const worker = new Worker(
      */
     console.log(`[${orderId}] Pending → Routing`);
     await updateOrder(orderId, { status: "routing" });
-
+    await delay(1000); // 👈 ADD
     /**
      * 2️⃣ Get best DEX
      */
@@ -57,7 +58,7 @@ const worker = new Worker(
       status: "building",
       dex: bestQuote.dex,
     });
-
+    await delay(1000); // 👈 ADD
     /**
      * Slippage protection
      */
@@ -91,7 +92,7 @@ const worker = new Worker(
       txHash,
     });
 
-    await delay(1000);
+    await delay(2000);
 
     /**
      * submitted → confirmed
@@ -101,6 +102,7 @@ const worker = new Worker(
       status: "confirmed",
       dex: bestQuote.dex,
     });
+    await delay(1000); // 👈 ADD
 
     /**
      * Persist success
