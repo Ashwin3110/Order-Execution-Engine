@@ -11,21 +11,28 @@ export async function getMeteoraQuote(
 ): Promise<DexQuote> {
   /**
    * Simulate network delay / RPC latency
-   * (real Meteora SDK may also be async)
    */
   await new Promise((res) => setTimeout(res, 500));
 
   /**
-   * Example pricing logic
-   * (replace with real Meteora math if available)
+   * Generate random realistic price
+   * Range: 21.5 → 24.5 USDC per SOL
    */
-  const price = 23; // example USDC per SOL
-  const outputAmount = inputAmount * price;
+  const minPrice = 19.5;
+  const maxPrice = 26.5;
+
+  const price =
+    Math.random() * (maxPrice - minPrice) + minPrice;
+
+  // Optional: round to 2 decimals
+  const roundedPrice = Number(price.toFixed(2));
+
+  const outputAmount = inputAmount * roundedPrice;
 
   return {
     dex: "Meteora",
     inputAmount,
     outputAmount,
-    poolAddress: METEORA_POOL_ADDRESS, // ✅ REQUIRED
+    poolAddress: METEORA_POOL_ADDRESS,
   };
 }

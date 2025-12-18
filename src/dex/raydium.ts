@@ -1,73 +1,38 @@
-// import {
-//   Liquidity,
-//   Token,
-//   TokenAmount,
-//   TOKEN_PROGRAM_ID,
-//   Percent,
-// } from "@raydium-io/raydium-sdk";
-// import BN from "bn.js";
+import { DexQuote } from "../types/dex";
 
-// import { solanaConnection } from "../solona/connection";
-// import { DexQuote } from "../types/dex";
-// import { RAYDIUM_SOL_USDC_POOL } from "./raydiumPools";
+/**
+ * Mock Raydium pool address
+ */
+const RAYDIUM_POOL_ADDRESS =
+  "RAYDIUM_MOCK_POOL_ADDRESS";
 
-// /**
-//  * Get a real Raydium quote (read-only)
-//  * SOL → USDC
-//  */
-// export async function getRaydiumQuote(
-//   inputAmountSol: number
-// ): Promise<DexQuote> {
-//   /**
-//    * Input token (WSOL)
-//    */
-//   const inputToken = new Token(
-//     TOKEN_PROGRAM_ID,
-//     RAYDIUM_SOL_USDC_POOL.baseMint,
-//     RAYDIUM_SOL_USDC_POOL.baseDecimals,
-//     "WSOL"
-//   );
+export async function getRaydiumQuote(
+  inputAmount: number
+): Promise<DexQuote> {
+  /**
+   * Simulate network latency
+   */
+  await new Promise((res) => setTimeout(res, 400));
 
-//   const amountIn = new TokenAmount(
-//     inputToken,
-//     new BN(inputAmountSol * 1e9)
-//   );
+  /**
+   * Generate random realistic price
+   * Range: 21.0 → 24.0 USDC per SOL
+   */
+  const minPrice = 19.5;
+  const maxPrice = 26.5;
 
-//   /**
-//    * Fetch pool runtime state
-//    */
-//   const poolInfo = await Liquidity.fetchInfo({
-//     connection: solanaConnection,
-//     poolKeys: RAYDIUM_SOL_USDC_POOL,
-//   });
+  const price =
+    Math.random() * (maxPrice - minPrice) + minPrice;
 
-//   /**
-//    * Output token (USDC)
-//    */
-//   const outputToken = new Token(
-//     TOKEN_PROGRAM_ID,
-//     RAYDIUM_SOL_USDC_POOL.quoteMint,
-//     RAYDIUM_SOL_USDC_POOL.quoteDecimals,
-//     "USDC"
-//   );
+  // Round to 2 decimals for realism
+  const roundedPrice = Number(price.toFixed(2));
 
-//   /**
-//    * Compute output amount
-//    */
-//   const { amountOut } = Liquidity.computeAmountOut({
-//     poolKeys: RAYDIUM_SOL_USDC_POOL,
-//     poolInfo,
-//     amountIn,
-//     currencyOut: outputToken,
-//     slippage: new Percent(0, 100), // ✅ FIXED
-//   });
+  const outputAmount = inputAmount * roundedPrice;
 
-//   return {
-//     dex: "Raydium",
-//     inputAmount: inputAmountSol,
-//     outputAmount:
-//       amountOut.raw.toNumber() /
-//       10 ** RAYDIUM_SOL_USDC_POOL.quoteDecimals, // ✅ FIXED
-//     poolAddress: RAYDIUM_SOL_USDC_POOL.id.toBase58(),
-//   };
-// }
+  return {
+    dex: "Raydium",
+    inputAmount,
+    outputAmount,
+    poolAddress: RAYDIUM_POOL_ADDRESS,
+  };
+}
