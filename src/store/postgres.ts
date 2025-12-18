@@ -21,6 +21,6 @@ pgPool.on("connect", () => {
   console.log("🟢 PostgreSQL connected");
 });
 
-pgPool.on("error", (err) => {
+pgPool.on("error", (err: Error) => {
   console.error("🔴 PostgreSQL error:", err);
 });
