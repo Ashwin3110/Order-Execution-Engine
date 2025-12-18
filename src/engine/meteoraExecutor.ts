@@ -17,7 +17,6 @@ export async function executeMeteoraSwap(
 
   /**
    * 1️⃣ LB Pair PUBLIC KEY
-   * (DO NOT read from dlmm.lbPair)
    */
   const lbPair = new PublicKey(poolAddress);
 

@@ -6,7 +6,7 @@ import { PublicKey } from "@solana/web3.js";
  * (Verified pool metadata)
  */
 export const RAYDIUM_SOL_USDC_POOL: LiquidityPoolKeysV4 = {
-  id: new PublicKey("8HoQnePLqPj4M7PUDzfw8e3Ymdwgc7NLGnaTUapubyvu"),
+  id: new PublicKey("3P2ywoEwJQQmGngAmfJFnXKvSgyWQwnBB7fschHP3As1"),
 
   baseMint: new PublicKey(
     "So11111111111111111111111111111111111111112"

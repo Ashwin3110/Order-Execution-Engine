@@ -10,9 +10,10 @@ import { getBestDex } from "../engine/router";
 import { buildAndSendRaydiumSwap } from "../engine/transactionBuilder";
 import { executeMeteoraSwap } from "../engine/meteoraExecutor";
 import { saveFinalOrder } from "../utils/orderRepository";
-
+import { mockRaydiumSwap } from "../engine/radiyumMock";
+import { mockMeteoraSwap } from "../engine/meteoraMock";
 /**
- * Small delay helper
+ * Delay helper
  */
 const delay = (ms: number) =>
   new Promise((res) => setTimeout(res, ms));
@@ -33,7 +34,6 @@ const worker = new Worker(
      */
     const order = await getOrder(orderId);
     if (!order) {
-      console.error(`❌ Order ${orderId} not found`);
       throw new Error("Order not found");
     }
 
@@ -48,14 +48,14 @@ const worker = new Worker(
      */
     const bestQuote = await getBestDex(order.amount);
     console.log(
-      `📊 [${orderId}] Best DEX: ${bestQuote.dex} | Expected output: ${bestQuote.outputAmount}`
+      `[${orderId}] Best DEX: ${bestQuote.dex} | Expected output: ${bestQuote.outputAmount}`
     );
 
     /**
      * routing → building
      */
     console.log(
-      `🏗️ [${orderId}] Status → building (DEX: ${bestQuote.dex})`
+      `[${orderId}] Status → building (${bestQuote.dex})`
     );
     await updateOrder(orderId, {
       status: "building",
@@ -63,28 +63,22 @@ const worker = new Worker(
     });
 
     /**
-     * 3️⃣ Slippage protection (3%)
+     * Slippage protection
      */
     const minOut = bestQuote.outputAmount * 0.97;
-    console.log(
-      `🛡️ [${orderId}] Slippage check: minOut = ${minOut}`
-    );
 
     let txHash: string;
 
     /**
-     * 4️⃣ Execute swap
+     * Execute swap
      */
     if (bestQuote.dex === "Raydium") {
-      console.log(`⚡ [${orderId}] Executing on Raydium`);
-      txHash = await buildAndSendRaydiumSwap(
+      txHash = await mockRaydiumSwap(
         order.amount,
         minOut
       );
     } else {
-      console.log(`⚡ [${orderId}] Executing on Meteora`);
-      txHash = await executeMeteoraSwap(
-        bestQuote.poolAddress,
+      txHash = await mockMeteoraSwap(
         order.amount,
         minOut
       );
@@ -94,29 +88,27 @@ const worker = new Worker(
      * building → submitted
      */
     console.log(
-      `📤 [${orderId}] Status → submitted | txHash: ${txHash}`
+      `[${orderId}] Status → submitted`
     );
     await updateOrder(orderId, {
       status: "submitted",
       txHash,
     });
 
-    // Give network some time
     await delay(1000);
 
     /**
      * submitted → confirmed
      */
-    console.log(`✅ [${orderId}] Status → confirmed`);
+    console.log(` [${orderId}] Status → confirmed`);
     await updateOrder(orderId, {
       status: "confirmed",
       dex: bestQuote.dex,
     });
 
     /**
-     * 5️⃣ Persist final order
+     * Persist success
      */
-    console.log(`💾 [${orderId}] Saving final order to DB`);
     await saveFinalOrder({
       orderId,
       status: "confirmed",
@@ -126,45 +118,52 @@ const worker = new Worker(
     });
 
     /**
-     * 6️⃣ Cleanup Redis
+     * Cleanup Redis on success
      */
-    console.log(`🧹 [${orderId}] Cleaning up Redis`);
-    await deleteOrder(orderId);
-
-    console.log(`🎉 [${orderId}] Order completed successfully`);
+    console.log(
+      `[${orderId}] Cleaning up Redis (success)`
+    );
+    // await deleteOrder(orderId);
   },
   {
     connection: redis,
-    concurrency: 10, // max 10 concurrent orders
+    concurrency: 10,
   }
 );
 
 /**
- * Job completed
- */
-worker.on("completed", (job) => {
-  console.log(`🏁 Job ${job.id} completed`);
-});
-
-/**
- * Job failed after retries
+ * Failed handler (fires on every failed attempt)
  */
 worker.on("failed", async (job, err) => {
   const orderId = job?.data?.orderId;
+  if (!orderId) return;
+
+  const attemptsMade = job.attemptsMade;
+  const maxAttempts = job.opts.attempts ?? 1;
 
   console.error(
-    `🔥 Order ${orderId} permanently failed:`,
-    err.message
+    `[${orderId}] Attempt ${attemptsMade}/${maxAttempts} failed: ${err.message}`
   );
 
-  if (orderId) {
+  /**
+   * ❗ Only cleanup on FINAL failure
+   */
+  if (attemptsMade + 1 >= maxAttempts) {
+    console.error(
+      `[${orderId}] Final failure. Cleaning up.`
+    );
+
     await saveFinalOrder({
       orderId,
       status: "failed",
       error: err.message,
     });
 
-    await deleteOrder(orderId);
+    // await deleteOrder(orderId);
+  } else {
+    console.log(
+      `[${orderId}] Retrying... (${attemptsMade + 1}/${maxAttempts})`
+    );
   }
 });
 
