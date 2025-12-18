@@ -27,7 +27,7 @@ const worker = new Worker(
   "order-queue",
   async (job) => {
     const { orderId } = job.data;
-    console.log(`${orderId} Processing order → Pending`);
+    console.log(`[${orderId}] Processing order → Pending`);
     /**
      * 1️⃣ Fetch order
      */
@@ -96,7 +96,7 @@ const worker = new Worker(
     /**
      * submitted → confirmed
      */
-    console.log(` [${orderId}] Submitted → confirmed`);
+    console.log(`[${orderId}] Submitted → confirmed`);
     await updateOrder(orderId, {
       status: "confirmed",
       dex: bestQuote.dex,
@@ -105,7 +105,7 @@ const worker = new Worker(
     /**
      * Persist success
      */
-    await   ({
+    await saveFinalOrder({
       orderId,
       status: "confirmed",
       dex: bestQuote.dex,
